@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Constellation Drill - Physics with Keith</title>
+    <title>Constellation Challenge - Physics with Keith</title>
     <link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -777,13 +777,13 @@
         <!-- Introduction Screen -->
         <div id="introScreen" class="screen active">
             <div class="intro-content">
-                <h1>CONSTELLATION DRILL</h1>
+                <h1>CONSTELLATION CHALLENGE</h1>
                 <p class="subtitle">Physics with Keith</p>
                 
                 <div class="rules">
                     <h2>How to Play</h2>
                     <ul>
-                        <li>🌟 Identify constellations and stars from star patterns</li>
+                        <li>🌟 Identify constellations from star patterns</li>
                         <li>⏱️ Race against the clock</li>
                         <li>💯 100 points for first try, 60 for second, 30 for third</li>
                         <li>💡 Get hints after wrong answers</li>
@@ -1110,6 +1110,20 @@
                         <button class="submit-btn" onclick="submitTextAnswer()">Submit</button>
                     </div>
                 `;
+                
+                // Add Enter key handler for text input
+                setTimeout(() => {
+                    const textInput = document.getElementById('textInput');
+                    if (textInput) {
+                        textInput.addEventListener('keypress', (e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                submitTextAnswer();
+                            }
+                        });
+                        textInput.focus();
+                    }
+                }, 50);
             }
             
             loadNextQuestion();
@@ -1420,9 +1434,11 @@
 
         function submitTextAnswer() {
             playClickSound();
-            const userAnswer = document.getElementById('textInput').value;
+            const textInput = document.getElementById('textInput');
+            const userAnswer = textInput ? textInput.value : '';
             if (userAnswer.trim()) {
                 checkAnswer(userAnswer);
+                // Clear the input but don't focus yet - we'll do that after processing
             }
         }
 
@@ -1497,6 +1513,13 @@
                         btn.disabled = true;
                     }
                 });
+            } else {
+                // For text input mode, clear the input and refocus
+                const textInput = document.getElementById('textInput');
+                if (textInput) {
+                    textInput.value = '';
+                    setTimeout(() => textInput.focus(), 100);
+                }
             }
             
             if (attemptNumber === 1) {
@@ -1620,15 +1643,6 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             generateStars();
-            
-            const textInput = document.getElementById('textInput');
-            if (textInput) {
-                textInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') {
-                        submitTextAnswer();
-                    }
-                });
-            }
         });
     </script>
 </body>
