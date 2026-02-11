@@ -320,6 +320,24 @@
             animation: pulse 2s infinite;
         }
 
+        .star-dot.highlight {
+            animation: highlightPulse 1s infinite;
+            z-index: 10;
+        }
+
+        @keyframes highlightPulse {
+            0%, 100% { 
+                transform: scale(1.5); 
+                opacity: 1;
+                box-shadow: 0 0 30px currentColor, 0 0 50px var(--accent);
+            }
+            50% { 
+                transform: scale(2); 
+                opacity: 0.9;
+                box-shadow: 0 0 50px currentColor, 0 0 80px var(--accent);
+            }
+        }
+
         @keyframes pulse {
             0%, 100% { transform: scale(1); opacity: 0.8; }
             50% { transform: scale(1.2); opacity: 1; }
@@ -883,7 +901,7 @@
             cygnus: {
                 name: "Cygnus",
                 stars: [
-                    { x: 0.50, y: 0.10, mag: 1.25, color: "#ffffff" }, // Deneb (α)
+                    { x: 0.50, y: 0.10, mag: 1.25, color: "#ffffff", name: "Deneb" }, // Deneb (α)
                     { x: 0.50, y: 0.45, mag: 2.23, color: "#fff9e3" }, // Sadr (γ)
                     { x: 0.20, y: 0.40, mag: 2.87, color: "#ffffff" }, // Fawaris (δ)
                     { x: 0.80, y: 0.50, mag: 2.48, color: "#ffede3" }, // Gienah (ε)
@@ -961,7 +979,7 @@
             lyra: {
                 name: "Lyra",
                 stars: [
-                    { x: 0.50, y: 0.15, mag: 0.03, color: "#ffffff" }, // Vega (α)
+                    { x: 0.50, y: 0.15, mag: 0.03, color: "#ffffff", name: "Vega" }, // Vega (α)
                     { x: 0.45, y: 0.65, mag: 3.52, color: "#ffffff" }, // Sheliak (β)
                     { x: 0.75, y: 0.85, mag: 3.24, color: "#e3f2ff" }, // Sulafat (γ)
                     { x: 0.85, y: 0.45, mag: 4.34, color: "#ffffff" }, // Delta 2 (δ2)
@@ -973,7 +991,7 @@
             aquila: {
                 name: "Aquila",
                 stars: [
-                    { x: 0.50, y: 0.30, mag: 0.76, color: "#ffffff" }, // Altair (α)
+                    { x: 0.50, y: 0.30, mag: 0.76, color: "#ffffff", name: "Altair" }, // Altair (α)
                     { x: 0.45, y: 0.15, mag: 2.72, color: "#ffede3" }, // Tarazed (γ)
                     { x: 0.55, y: 0.45, mag: 3.71, color: "#fff9e3" }, // Alshain (β)
                     { x: 0.15, y: 0.65, mag: 2.99, color: "#ffffff" }, // Okab (ζ)
@@ -991,6 +1009,7 @@
         let timeLeft = 60;
         let timerInterval;
         let currentQuestion;
+        let lastQuestion = null; // Track last question to prevent repeats
         let attemptNumber = 0;
         let questionsAnswered = 0;
         let firstTryCorrect = 0;
@@ -1088,19 +1107,75 @@
             
             attemptNumber = 0;
             
-            // Random constellation
-            const keys = Object.keys(constellations);
-            const randomKey = keys[Math.floor(Math.random() * keys.length)];
-            currentQuestion = {
-                key: randomKey,
-                data: constellations[randomKey]
-            };
+            // Get all possible questions (constellations + named stars)
+            const constellationKeys = Object.keys(constellations);
+            const starQuestions = [];
             
-            drawConstellation(currentQuestion.data);
+            // Find all stars with names
+            Object.entries(constellations).forEach(([key, data]) => {
+                data.stars.forEach((star, index) => {
+                    if (star.name) {
+                        starQuestions.push({
+                            type: 'star',
+                            constellationKey: key,
+                            starIndex: index,
+                            starName: star.name,
+                            constellationName: data.name
+                        });
+                    }
+                });
+            });
+            
+            // Combine all questions
+            const allQuestions = [
+                ...constellationKeys.map(key => ({ type: 'constellation', key })),
+                ...starQuestions
+            ];
+            
+            // Filter out the last question to prevent repeats
+            const availableQuestions = allQuestions.filter(q => {
+                if (!lastQuestion) return true;
+                if (q.type === 'constellation' && lastQuestion.type === 'constellation') {
+                    return q.key !== lastQuestion.key;
+                }
+                if (q.type === 'star' && lastQuestion.type === 'star') {
+                    return q.starName !== lastQuestion.starName;
+                }
+                return true;
+            });
+            
+            // Select random question
+            const randomQuestion = availableQuestions[Math.floor(Math.random() * availableQuestions.length)];
+            
+            if (randomQuestion.type === 'constellation') {
+                currentQuestion = {
+                    type: 'constellation',
+                    key: randomQuestion.key,
+                    data: constellations[randomQuestion.key]
+                };
+                lastQuestion = { type: 'constellation', key: randomQuestion.key };
+            } else {
+                currentQuestion = {
+                    type: 'star',
+                    constellationKey: randomQuestion.constellationKey,
+                    starIndex: randomQuestion.starIndex,
+                    starName: randomQuestion.starName,
+                    data: constellations[randomQuestion.constellationKey]
+                };
+                lastQuestion = { type: 'star', starName: randomQuestion.starName };
+            }
+            
+            drawConstellation(currentQuestion.data, currentQuestion.type === 'star' ? currentQuestion.starIndex : null);
             
             // Reset UI
             document.getElementById('hintBox').style.background = 'rgba(0, 217, 255, 0.1)';
-            document.getElementById('hintBox').textContent = 'Name this constellation!';
+            
+            if (currentQuestion.type === 'constellation') {
+                document.getElementById('hintBox').textContent = 'Name this constellation!';
+            } else {
+                document.getElementById('hintBox').textContent = 'Name the highlighted star!';
+            }
+            
             document.getElementById('attemptsDisplay').textContent = 'Attempts: 3/3';
             
             if (gameMode === 'multiple-choice') {
@@ -1111,7 +1186,7 @@
             }
         }
 
-        function drawConstellation(constellation) {
+        function drawConstellation(constellation, highlightStarIndex = null) {
             const container = document.getElementById('constellationDisplay');
             container.innerHTML = '';
             
@@ -1142,10 +1217,20 @@
             });
             
             // Draw stars
-            constellation.stars.forEach(star => {
-                const size = 8 - (star.mag * 1.5);
+            constellation.stars.forEach((star, index) => {
+                // STAR SIZE ADJUSTMENT: Change the multiplier (3) to make stars bigger or smaller
+                // Current setting: 3x larger than original. Try 2 for smaller, 4 for bigger.
+                const baseSizeMultiplier = 3;
+                const size = (8 - (star.mag * 1.5)) * baseSizeMultiplier;
+                
                 const dot = document.createElement('div');
                 dot.className = 'star-dot';
+                
+                // Highlight the target star if this is a star naming question
+                if (highlightStarIndex !== null && index === highlightStarIndex) {
+                    dot.classList.add('highlight');
+                }
+                
                 dot.style.left = (star.x * width - size/2) + 'px';
                 dot.style.top = (star.y * height - size/2) + 'px';
                 dot.style.width = size + 'px';
@@ -1153,16 +1238,40 @@
                 dot.style.background = star.color;
                 dot.style.color = star.color;
                 
+                // Add data attribute for star naming questions
+                if (star.name) {
+                    dot.dataset.starName = star.name;
+                    dot.dataset.starIndex = index;
+                }
+                
                 container.appendChild(dot);
             });
         }
 
         function generateChoices() {
-            const choices = [currentQuestion.data.name];
-            const allNames = Object.values(constellations).map(c => c.name);
+            let correctAnswer, allOptions;
             
-            while (choices.length < 4) {
-                const random = allNames[Math.floor(Math.random() * allNames.length)];
+            if (currentQuestion.type === 'constellation') {
+                correctAnswer = currentQuestion.data.name;
+                allOptions = Object.values(constellations).map(c => c.name);
+            } else {
+                // Star naming question
+                correctAnswer = currentQuestion.starName;
+                // Get all named stars
+                allOptions = [];
+                Object.values(constellations).forEach(constellation => {
+                    constellation.stars.forEach(star => {
+                        if (star.name && !allOptions.includes(star.name)) {
+                            allOptions.push(star.name);
+                        }
+                    });
+                });
+            }
+            
+            const choices = [correctAnswer];
+            
+            while (choices.length < 4 && choices.length < allOptions.length) {
+                const random = allOptions[Math.floor(Math.random() * allOptions.length)];
                 if (!choices.includes(random)) {
                     choices.push(random);
                 }
@@ -1236,7 +1345,11 @@
         }
 
         function checkAnswer(answer) {
-            const isCorrect = isAnswerClose(answer, currentQuestion.data.name);
+            const correctAnswer = currentQuestion.type === 'constellation' 
+                ? currentQuestion.data.name 
+                : currentQuestion.starName;
+                
+            const isCorrect = isAnswerClose(answer, correctAnswer);
             attemptNumber++;
             
             const attemptsLeft = 3 - attemptNumber;
@@ -1268,10 +1381,14 @@
             updateAccuracyMeter();
             
             if (gameMode === 'multiple-choice') {
+                const correctAnswer = currentQuestion.type === 'constellation' 
+                    ? currentQuestion.data.name 
+                    : currentQuestion.starName;
+                    
                 const buttons = document.querySelectorAll('.choice-btn');
                 buttons.forEach(btn => {
                     btn.disabled = true;
-                    if (isAnswerClose(btn.textContent, currentQuestion.data.name)) {
+                    if (isAnswerClose(btn.textContent, correctAnswer)) {
                         btn.classList.add('correct');
                     }
                 });
@@ -1324,10 +1441,14 @@
         function showCorrectAnswer() {
             questionsAnswered++;
             
+            const correctAnswer = currentQuestion.type === 'constellation' 
+                ? currentQuestion.data.name 
+                : currentQuestion.starName;
+            
             const container = document.getElementById('constellationDisplay');
             const answerDisplay = document.createElement('div');
             answerDisplay.className = 'correct-answer-display';
-            answerDisplay.textContent = `${currentQuestion.data.name}`;
+            answerDisplay.textContent = `${correctAnswer}`;
             container.appendChild(answerDisplay);
             
             setTimeout(() => {
