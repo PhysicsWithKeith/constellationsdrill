@@ -288,12 +288,6 @@
             min-height: 0;
         }
 
-        @media (max-width: 968px) {
-            .game-content {
-                flex-direction: column;
-            }
-        }
-
         .constellation-display {
             flex: 1.5;
             background: radial-gradient(ellipse at center, rgba(26, 31, 58, 0.9), rgba(10, 14, 39, 0.95));
@@ -306,13 +300,6 @@
                 inset 0 0 60px rgba(0, 217, 255, 0.05);
             min-height: 500px;
             height: 500px;
-        }
-
-        @media (max-width: 768px) {
-            .constellation-display {
-                min-height: 400px;
-                height: 400px;
-            }
         }
 
         #constellationDisplay {
@@ -332,6 +319,34 @@
         .star-dot.highlight {
             animation: highlightPulse 1s infinite;
             z-index: 10;
+            position: relative;
+        }
+
+        .star-dot.highlight::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200%;
+            height: 200%;
+            border: 3px solid #ff006e;
+            border-radius: 50%;
+            animation: magentaRingPulse 1.5s infinite;
+            pointer-events: none;
+        }
+
+        @keyframes magentaRingPulse {
+            0%, 100% { 
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+                box-shadow: 0 0 20px #ff006e, 0 0 40px #ff006e;
+            }
+            50% { 
+                transform: translate(-50%, -50%) scale(1.5);
+                opacity: 0.6;
+                box-shadow: 0 0 40px #ff006e, 0 0 80px #ff006e;
+            }
         }
 
         @keyframes highlightPulse {
@@ -731,43 +746,6 @@
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(255, 71, 87, 0.6);
         }
-
-        /* Mobile Responsive Adjustments */
-        @media (max-width: 768px) {
-            .intro-content, .gameover-content {
-                padding: 30px 20px;
-            }
-
-            .mode-selection {
-                flex-direction: column;
-            }
-
-            .mode-btn {
-                min-width: 100%;
-            }
-
-            .game-header {
-                padding: 15px 20px;
-                justify-content: center;
-            }
-
-            .timer, .score-display, .attempts-display {
-                font-size: 0.9rem;
-                padding: 10px 16px;
-            }
-
-            .game-panel {
-                padding: 20px;
-            }
-
-            .text-input-container {
-                flex-direction: column;
-            }
-
-            .submit-btn {
-                width: 100%;
-            }
-        }
     </style>
 </head>
 <body>
@@ -788,6 +766,7 @@
                         <li>💯 100 points for first try, 60 for second, 30 for third</li>
                         <li>💡 Get hints after wrong answers</li>
                         <li>🎯 Build your accuracy meter to maximum!</li>
+                        <li>📱 Play in your browser's "Desktop site" mode on full screen for the best experience</li>
                     </ul>
                 </div>
                 
@@ -829,7 +808,7 @@
                             </div>
                             <div class="meter-needle" id="accuracyNeedle"></div>
                         </div>
-                        <div class="accuracy-value" id="accuracyValue">0</div>
+                        <div class="accuracy-value" id="accuracyValue">50%</div>
                     </div>
 
                     <div id="answerArea">
@@ -975,7 +954,7 @@
             ursaMinor: {
                 name: "Ursa Minor",
                 stars: [
-{ x: 0.9, y: 0.9, mag: 1.98, color: "#F8F7FF" }, // Polaris (α UMi)
+{ x: 0.9, y: 0.9, mag: 1.98, color: "#F8F7FF", name: "Polaris" }, // Polaris (α UMi)
 { x: 0.1, y: 0.21, mag: 2.08, color: "#FFD2A1" }, // Kochab (β UMi)
 { x: 0.23, y: 0.1, mag: 3, color: "#CAD7FF" }, // Pherkad (γ UMi)
 { x: 0.34, y: 0.37, mag: 4.29, color: "#CAD7FF" }, // Zeta UMi (ζ UMi)
@@ -1033,7 +1012,9 @@
         // Game state
         let gameMode = '';
         let score = 0;
-        let accuracy = 0;
+        let accuracy = 50; // Start at 50%
+        let totalAttempts = 0; // Track total attempts for accuracy calculation
+        let totalCorrect = 0; // Track correct answers for accuracy calculation
         let timeLeft = 300; // 5 minutes = 300 seconds
         let timerInterval;
         let currentQuestion;
@@ -1304,10 +1285,11 @@
                 
                 // Draw stars
                 constellation.stars.forEach((star, index) => {
-                    // STAR SIZE ADJUSTMENT: Change the multiplier (3) to make stars bigger or smaller
-                    // Current setting: 3x larger than original. Try 2 for smaller, 4 for bigger.
-                    const baseSizeMultiplier = 3;
-                    const size = (8 - (star.mag * 1.5)) * baseSizeMultiplier;
+                    // STAR SIZE ADJUSTMENT: Change the multiplier (1.5) to make stars bigger or smaller
+                    // Current setting: 1.5x larger than original. Try 1 for smaller, 2 for bigger.
+                    const baseSizeMultiplier = 1.8;
+                    // Apply both the base multiplier AND the rotation scale factor
+                    const size = (8 - (star.mag * 1.5)) * baseSizeMultiplier * scale;
                     
                     const dot = document.createElement('div');
                     dot.className = 'star-dot';
@@ -1467,8 +1449,12 @@
             const points = [100, 60, 30][attemptNumber - 1];
             score += points;
             
-            const accuracyGain = [30, 15, 5][attemptNumber - 1];
-            accuracy += accuracyGain;
+            // Track for percentage-based accuracy
+            totalCorrect++;
+            totalAttempts += attemptNumber;
+            
+            // Calculate accuracy as percentage: (correct / attempts) * 100, capped at 100%
+            accuracy = Math.min(100, (totalCorrect / totalAttempts) * 100);
             
             if (attemptNumber === 1) {
                 firstTryCorrect++;
@@ -1502,7 +1488,7 @@
         }
 
         function handleWrongAnswer(answer) {
-            accuracy -= 10;
+            // Wrong answers don't directly change accuracy - it's calculated from totals
             updateAccuracyMeter();
             
             if (gameMode === 'multiple-choice') {
@@ -1564,6 +1550,14 @@
         function showCorrectAnswer() {
             questionsAnswered++;
             
+            // Track failed question: 3 attempts, 0 correct
+            totalAttempts += 3;
+            // totalCorrect stays the same (no correct answer)
+            
+            // Recalculate accuracy
+            accuracy = Math.min(100, (totalCorrect / totalAttempts) * 100);
+            updateAccuracyMeter();
+            
             // Disable all buttons immediately to prevent further clicks
             if (gameMode === 'multiple-choice') {
                 const buttons = document.querySelectorAll('.choice-btn');
@@ -1602,16 +1596,19 @@
             const needle = document.getElementById('accuracyNeedle');
             const valueDisplay = document.getElementById('accuracyValue');
             
-            const clampedAccuracy = Math.max(-100, Math.min(100, accuracy));
+            // Accuracy is now 0-100, clamped
+            const clampedAccuracy = Math.max(0, Math.min(100, accuracy));
             
-            const rotation = (clampedAccuracy / 100) * 90;
+            // Map 0-100% to -90deg to +90deg (0% = -90deg, 50% = 0deg, 100% = +90deg)
+            const rotation = ((clampedAccuracy - 50) / 50) * 90;
             needle.style.transform = `translateX(-50%) rotate(${rotation}deg)`;
             
-            valueDisplay.textContent = Math.round(clampedAccuracy);
+            valueDisplay.textContent = Math.round(clampedAccuracy) + '%';
             
-            if (clampedAccuracy > 30) {
+            // Color coding based on percentage
+            if (clampedAccuracy >= 70) {
                 valueDisplay.style.color = 'var(--success)';
-            } else if (clampedAccuracy < -30) {
+            } else if (clampedAccuracy < 40) {
                 valueDisplay.style.color = 'var(--error)';
             } else {
                 valueDisplay.style.color = 'var(--primary)';
@@ -1634,7 +1631,7 @@
             document.getElementById('gameoverScreen').classList.add('active');
             
             document.getElementById('finalScore').textContent = score;
-            document.getElementById('finalAccuracy').textContent = Math.round(accuracy);
+            document.getElementById('finalAccuracy').textContent = Math.round(accuracy)+"%";
             document.getElementById('questionsAnswered').textContent = questionsAnswered;
             document.getElementById('firstTryCorrect').textContent = firstTryCorrect;
             
@@ -1647,4 +1644,3 @@
     </script>
 </body>
 </html>
-
